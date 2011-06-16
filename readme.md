@@ -6,7 +6,6 @@
 Prediction is a simple plugin to make word or sentence prediction/completion/recognition/suggestion on text input or textarea.
 
 ## Usage
-> ___Do not use title selector as selector cause the script will remove that attribute.___
 
 	$(function() {
 		$('input.class').suggest();
