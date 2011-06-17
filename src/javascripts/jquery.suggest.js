@@ -12,7 +12,11 @@
 		init: function() {
 			var self = this;
 			
-			this.$element.bind('blur keydown click', function(event) {
+			this.$element.bind('blur keydown click', function(event, params) {
+				if(params && params.suggestEventSkip) {
+					return;
+				}
+
 				// Clear our timeour no matter what the event might be.
 				clearTimeout(self.delay);
 				
@@ -49,7 +53,7 @@
 								}
 							   break;
 						}
-
+						
 						// Here we will check if we should suggest anything at all.
 						// So far we just suggest on [0-9a-z].
 						// When we change this consider if we need to check if caret start and end is the same.
@@ -95,17 +99,22 @@
 					}
 				});
 			}
-
-			// TODO: Here we should remove ending chars from string, such as ,.!?
 			
+			// TODO: Here we should remove ending chars from string, such as ,.!?
+			string = $.trim(string);
+			
+			// TODO: Change this thing to use a data storage and make possible ajax call to get more suggestions.
+			// TODO: Also make a storage og skipped suggestion.
+			// TODO: When we got a suggestion and we use arrow down, try to find a new suggestion.
+			// TODO: When we got suggestion and use arrow up, use previous suggestion.
 			var suggestions	= ['ActionScript','AppleScript','ASP','BASIC','Batch','COBOL','ColdFusion','Delphi','ECMAScript','Erlang','F-Script','GLBasic','HTML','IronRuby','Java','JavaScript','JQuery','Limbo'];
 			var suggestion		= suggestions.filter(function(suggestion, index, array) {
-				return (suggestion.toLowerCase().substr(0, this.string.length) == this.string.toLowerCase() && suggestion.length != this.string.length)
+				return (suggestion.toLowerCase().substr(0, this.string.length) == this.string.toLowerCase() && suggestion.length != this.string.length);
 			}, {string: string})[0];
-
+			
 			if(suggestion) {
 				suggestion = '‎' + suggestion.substr(string.length, suggestion.length) + '‎';
-				// TODO: Make it posible to insetAtCaret wthout settings caret, or with defining caret position so we wont set it twice.
+				
 				this.insertAtCaret(suggestion);
 				this.setCaret(this.$element.val().indexOf('‎'), this.$element.val().lastIndexOf('‎'));
 			}
@@ -133,11 +142,8 @@
 			var caret		= this.getCaret();
 			var scrollTop	= this.$element.scrollTop();
 			
-			this.$element.val(text.replace(/‎(.*)‎/g, "$1"))
-				.scrollTop(scrollTop)
-				.focus();
-			
-			this.setCaret(caret.end-1);
+			this.$element.val(text.replace(/‎(.*)‎/g, "$1"));			
+			this.setCaret(caret.end-1); // Use -1 cause of the hidden chars we just replaced
 		},
 		
 		/*
@@ -146,12 +152,12 @@
 		getCaret: function() {
 			// TODO: make cross browser.
 			var caret = {};
-
+			
 			if (this.$element.get(0).setSelectionRange) {
 				caret.start	= this.$element.get(0).selectionStart;
 				caret.end	= this.$element.get(0).selectionEnd;
 			}
-
+			
 			return caret;
 		},
 		
@@ -161,7 +167,7 @@
 			
 			start	= parseInt(start);
 			end	= (end) ? Math.max(start, parseInt(end)) : start;
-
+			
 			if (element.get(0).setSelectionRange) {
 				element.focus();
 				element.get(0).setSelectionRange(start, end);
@@ -173,44 +179,28 @@
 				range.moveStart('character', start);
 				range.select();
 			}
+			
+			// TODO: Make sure this event wont removeSuggestion
+			element.trigger('blur', {suggestEventSkip: true});
+			element.focus();
+			
+			// TODO: Find a fix for opera so it will put caret into view of the text field.
 		},
 		
 		insertAtCaret: function(string) {
-			// TODO: make cross browser.
-			var element = this.$element;
 			var caret	= this.getCaret();
+			var content	= this.$element.val();
 			
 			if(caret.start || caret.start === 0) {
-				var value	= element.val().substr(0, caret.start) + string + element.val().substr(caret.end);
-				var scroll	= {
-					left: element.get(0).scrollLeft,
-					top: element.get(0).scrollTop
-				};
+				this.$element.val(content.substr(0, caret.start) + string + content.substr(caret.end));
 				
-				// Insert the new value and focus.
-				element.val(value).focus();
-				
-				// Set caret.
-				// TODO: Use this.setCaret() instead
-				element.get(0).selectionStart = caret.start+string.length;
-				element.get(0).selectionEnd	= caret.start+string.length;
-				
-				// If we are at the end we set scroll to max.
-				if(caret.start+string.length >= value.length) {
-					scroll = {
-						left:	Math.max(element.get(0).scrollWidth, element.innerWidth()),
-						top:	Math.max(element.get(0).scrollHeight, element.innerHeight())
-					};
-				}
-				
-				// Scroll into to space.
-				element.get(0).scrollLeft		= scroll.left;
-				element.get(0).scrollTop		= scroll.top;
+				// We dont use this for now.
+				//this.setCaret(caret.start+string.length);
 			}
 		}
 	};
 	
-	$.fn.suggest = function(options) {		
+	$.fn.suggest = function(options) {
 		if(options == true) {
 			return get_or_create($(this));
 		}
@@ -225,12 +215,12 @@
 		// Get or create the object.
 		function get_or_create(element){
 			var object = $.data(element.get(0), 'suggest');
-
+			
 			if (!object) {
 				var object = new suggestObject(element, options);
 				$.data(element.get(0), 'suggest', object);
 			}
-		
+			
 			return object;
 		};
 	};
